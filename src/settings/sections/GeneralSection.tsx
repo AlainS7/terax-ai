@@ -25,6 +25,7 @@ import {
   setEditorAutoSave,
   setEditorAutoSaveDelay,
   setRestoreWindowState,
+  setDefaultWorkspaceDir,
   setShowHidden,
   setTerminalFontFamily,
   setTerminalLetterSpacing,
@@ -69,6 +70,7 @@ export function GeneralSection() {
 
   const autostart = usePreferencesStore((s) => s.autostart);
   const restoreWindowState = usePreferencesStore((s) => s.restoreWindowState);
+  const defaultWorkspaceDir = usePreferencesStore((s) => s.defaultWorkspaceDir);
   const vimMode = usePreferencesStore((s) => s.vimMode);
   const editorAutoSave = usePreferencesStore((s) => s.editorAutoSave);
   const editorAutoSaveDelay = usePreferencesStore((s) => s.editorAutoSaveDelay);
@@ -349,6 +351,17 @@ export function GeneralSection() {
             <Switch
               checked={restoreWindowState}
               onCheckedChange={(v) => void setRestoreWindowState(v)}
+            />
+          </SettingRow>
+          <SettingRow
+            title="Default workspace folder"
+            description="Open Terax here when no launch folder is passed (e.g. ~/Projects/Developer). Applies on next launch."
+          >
+            <Input
+              value={defaultWorkspaceDir}
+              onChange={(e) => void setDefaultWorkspaceDir(e.target.value)}
+              placeholder="/Users/you/Projects/Developer"
+              className="h-8 w-72 text-[12px]"
             />
           </SettingRow>
         </div>

@@ -7,8 +7,14 @@
 
 {
   _terax_user_zdotdir="${TERAX_USER_ZDOTDIR:-$HOME}"
+  _terax_saved_zdotdir="$ZDOTDIR"
+  # User dotfiles (p10k, XDG modules) key off ZDOTDIR — restore it while sourcing.
+  ZDOTDIR="$_terax_user_zdotdir"
+  export ZDOTDIR
   [ -f "$_terax_user_zdotdir/.zshrc" ] && source "$_terax_user_zdotdir/.zshrc"
-  unset _terax_user_zdotdir
+  ZDOTDIR="$_terax_saved_zdotdir"
+  export ZDOTDIR
+  unset _terax_user_zdotdir _terax_saved_zdotdir
 }
 
 # Re-source guard within a single shell (e.g. user runs `source ~/.zshrc`).

@@ -90,6 +90,7 @@ export type Preferences = {
   shortcuts: Record<ShortcutId, KeyBinding[]>;
   editorAutoSave: boolean;
   editorAutoSaveDelay: number;
+  defaultWorkspaceDir: string;
 };
 
 const STORE_PATH = "terax-settings.json";
@@ -134,6 +135,7 @@ const KEY_AGENT_NOTIFICATIONS = "agentNotifications";
 const KEY_SHORTCUTS = "shortcuts";
 const KEY_EDITOR_AUTO_SAVE = "editorAutoSave";
 const KEY_EDITOR_AUTO_SAVE_DELAY = "editorAutoSaveDelay";
+const KEY_DEFAULT_WORKSPACE_DIR = "defaultWorkspaceDir";
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
 export const TERMINAL_FONT_SIZE_MIN = 8;
@@ -191,6 +193,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
   editorAutoSave: false,
   editorAutoSaveDelay: 1000,
+  defaultWorkspaceDir: "",
 };
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
@@ -330,6 +333,9 @@ export async function loadPreferences(): Promise<Preferences> {
       get<number>(KEY_EDITOR_AUTO_SAVE_DELAY) ??
         DEFAULT_PREFERENCES.editorAutoSaveDelay,
     ),
+    defaultWorkspaceDir:
+      get<string>(KEY_DEFAULT_WORKSPACE_DIR) ??
+      DEFAULT_PREFERENCES.defaultWorkspaceDir,
   };
 }
 
@@ -390,6 +396,10 @@ export async function setAutostart(value: boolean): Promise<void> {
 
 export async function setRestoreWindowState(value: boolean): Promise<void> {
   await writePref(KEY_RESTORE_WINDOW, value);
+}
+
+export async function setDefaultWorkspaceDir(value: string): Promise<void> {
+  await writePref(KEY_DEFAULT_WORKSPACE_DIR, value.trim());
 }
 
 export async function setAutocompleteEnabled(value: boolean): Promise<void> {

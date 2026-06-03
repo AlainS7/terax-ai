@@ -157,6 +157,12 @@ fn resolve_launch_cwd(cli_dir: Option<&str>, env_cwd: Option<PathBuf>) -> Option
             return Some(p);
         }
     }
+    if let Ok(dir) = std::env::var("TERAX_LAUNCH_DIR") {
+        let p = PathBuf::from(dir.trim());
+        if p.is_dir() {
+            return Some(p);
+        }
+    }
     env_cwd.filter(|p| is_usable_launch_dir(p))
 }
 
@@ -771,5 +777,20 @@ mod auth_tests {
         let env = tempdir("envfb");
         let resolved = resolve_launch_cwd(Some("/no/such/terax/dir"), Some(env.clone()));
         assert_eq!(resolved, Some(env));
+    }
+
+    #[test]
+    fn resolve_launch_cwd_prefers_terax_launch_dir_over_env_cwd() {
+        let from_env = tempdir("from-env");
+        let from_var = tempdir("from-var");
+        let key = "TERAX_LAUNCH_DIR";
+        let prior = std::env::var(key).ok();
+        std::env::set_var(key, from_var.to_string_lossy().as_ref());
+        let resolved = resolve_launch_cwd(None, Some(from_env.clone()));
+        match prior {
+            Some(v) => std::env::set_var(key, v),
+            None => std::env::remove_var(key),
+        }
+        assert_eq!(resolved.as_deref(), Some(from_var.as_path()));
     }
 }
