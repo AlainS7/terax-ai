@@ -6,7 +6,12 @@ import {
   type GitStatusSnapshot,
 } from "@/modules/ai/lib/native";
 import { useChatStore } from "@/modules/ai/store/chatStore";
-import { providerNeedsKey, resolveModel } from "@/modules/ai/config";
+import {
+  endpointIdFromCompatModel,
+  isCompatModelId,
+  providerNeedsKey,
+  resolveModel,
+} from "@/modules/ai/config";
 import {
   invalidateDiff,
   invalidateRepoDiffs,
@@ -368,8 +373,10 @@ export function useSourceControlPanel(
 ): SourceControlPanelState {
   const selectedModelId = useChatStore((state) => state.selectedModelId);
   const agentStatus = useChatStore((state) => state.agentMeta.status);
+  const customEndpoints = usePreferencesStore((state) => state.customEndpoints);
   const hasApiKeyForSelected = useChatStore((state) => {
-    const model = resolveModel(state.selectedModelId);
+    if (isCompatModelId(state.selectedModelId)) return true;
+    const model = resolveModel(state.selectedModelId, customEndpoints);
     return !providerNeedsKey(model.provider) || !!state.apiKeys[model.provider];
   });
   const lmstudioModelId = usePreferencesStore((state) => state.lmstudioModelId);
@@ -462,7 +469,7 @@ export function useSourceControlPanel(
 
   const allClean = stagedEntries.length === 0 && unstagedEntries.length === 0;
   const canPush = !!status?.upstream && status.behind === 0;
-  const selectedModel = resolveModel(selectedModelId);
+  const selectedModel = resolveModel(selectedModelId, customEndpoints);
   const aiBusy = agentStatus !== "idle" && agentStatus !== "error";
   const anyActionBusy = localActionBusy !== null || summary.busyAction !== null;
   const aiUnavailableReason = useMemo(() => {
@@ -487,11 +494,19 @@ export function useSourceControlPanel(
     ) {
       return "Connect an AI provider to generate commit messages";
     }
+    if (isCompatModelId(selectedModelId)) {
+      const eid = endpointIdFromCompatModel(selectedModelId);
+      const ep = customEndpoints.find((e) => e.id === eid);
+      if (!ep?.baseURL.trim() || !ep?.modelId.trim()) {
+        return "Connect an AI provider to generate commit messages";
+      }
+    }
     if (selectedModel.id === "openrouter-custom" && !openrouterModelId.trim()) {
       return "Connect an AI provider to generate commit messages";
     }
     return null;
   }, [
+    customEndpoints,
     hasApiKeyForSelected,
     lmstudioModelId,
     mlxModelId,
@@ -500,6 +515,7 @@ export function useSourceControlPanel(
     openaiCompatibleModelId,
     openrouterModelId,
     selectedModel,
+    selectedModelId,
     stagedEntries.length,
   ]);
   const canGenerateCommitMessage =
@@ -883,6 +899,8 @@ export function useSourceControlPanel(
           openaiCompatibleBaseURL,
           openaiCompatibleModelId,
           openrouterModelId,
+          customEndpoints: prefs.customEndpoints,
+          customEndpointKeys: chatState.customEndpointKeys,
         },
       );
       const result = await generateText({
