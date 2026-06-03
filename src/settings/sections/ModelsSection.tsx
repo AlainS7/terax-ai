@@ -67,6 +67,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useState } from "react";
+import { OpenAiCompatibleModelIdField } from "@/modules/ai/components/OpenAiCompatibleModelIdField";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { ProviderKeyCard } from "../components/ProviderKeyCard";
 import { SectionHeader } from "../components/SectionHeader";
@@ -113,7 +114,8 @@ const LOCAL_META: Partial<Record<ProviderId, LocalMeta>> = {
   "openai-compatible": {
     urlPlaceholder: "https://api.example.com/v1",
     modelPlaceholder: "gpt-4o, qwen3-max, glm-4.6, …",
-    description: "Any OpenAI-compatible endpoint — vLLM, Z.AI, Fireworks, etc.",
+    description:
+      "Any OpenAI-compatible endpoint — LiteLLM, vLLM, Z.AI, Fireworks, etc. Model list auto-loads from /v1/models when available.",
     modelHint: null,
   },
   openrouter: {
@@ -854,17 +856,30 @@ function LocalProviderCard({
         )}
 
         <FieldRow label="Model ID">
-          <Input
-            value={modelDraft}
-            onChange={(e) => setModelDraft(e.target.value)}
-            onBlur={() => {
-              const v = modelDraft.trim();
-              if (v !== modelId) void setModelId(v);
-            }}
-            placeholder={meta.modelPlaceholder}
-            spellCheck={false}
-            className="h-8 font-mono text-[11.5px]"
-          />
+          {provider.id === "openai-compatible" ? (
+            <OpenAiCompatibleModelIdField
+              baseURL={urlDraft || baseURL}
+              apiKey={compatKey}
+              value={modelDraft}
+              onChange={(v) => {
+                setModelDraft(v);
+                if (v !== modelId) void setModelId(v);
+              }}
+              placeholder={meta.modelPlaceholder}
+            />
+          ) : (
+            <Input
+              value={modelDraft}
+              onChange={(e) => setModelDraft(e.target.value)}
+              onBlur={() => {
+                const v = modelDraft.trim();
+                if (v !== modelId) void setModelId(v);
+              }}
+              placeholder={meta.modelPlaceholder}
+              spellCheck={false}
+              className="h-8 font-mono text-[11.5px]"
+            />
+          )}
         </FieldRow>
 
         {setContextLimit ? (
@@ -1082,16 +1097,15 @@ function CustomEndpointCard({
           </FieldRow>
 
           <FieldRow label="Model ID">
-            <Input
+            <OpenAiCompatibleModelIdField
+              baseURL={urlDraft || endpoint.baseURL}
+              apiKey={endpointKey}
               value={modelDraft}
-              onChange={(e) => setModelDraft(e.target.value)}
-              onBlur={() => {
-                const v = modelDraft.trim();
+              onChange={(v) => {
+                setModelDraft(v);
                 if (v !== endpoint.modelId) void onUpdate({ modelId: v });
               }}
               placeholder="gpt-4o, qwen3-max, glm-4.6, …"
-              spellCheck={false}
-              className="h-8 font-mono text-[11.5px]"
             />
           </FieldRow>
 

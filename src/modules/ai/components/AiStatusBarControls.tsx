@@ -60,6 +60,7 @@ import { ACCEPTED_FILES, useComposer } from "../lib/composer";
 import { toggleFavoriteModel } from "../lib/modelPrefs";
 import { useChatStore } from "../store/chatStore";
 import { usePreferencesStore } from "@/modules/settings/preferences";
+import { LiteLLMModelQuickSelect } from "./LiteLLMModelQuickSelect";
 
 const PROVIDER_ICON = {
   openai: ChatGptIcon,
@@ -155,6 +156,7 @@ export function AiStatusBarControls() {
         </IconBtn>
       )}
 
+      <LiteLLMModelQuickSelect />
       <ModelDropdown />
 
       <span className="mx-1 h-8 w-px bg-border" aria-hidden />
@@ -216,9 +218,14 @@ function ModelDropdown() {
   const favoriteIds = usePreferencesStore((s) => s.favoriteModelIds);
   const recentIds = usePreferencesStore((s) => s.recentModelIds);
   const customEndpoints = usePreferencesStore((s) => s.customEndpoints);
+  const compatModelId = usePreferencesStore((s) => s.openaiCompatibleModelId);
   const current = isCompatModelId(selected)
     ? getCompatModelInfo(selected, customEndpoints)
     : getModel(selected as ModelId);
+  const currentLabel =
+    selected === "openai-compatible-custom" && compatModelId.trim()
+      ? compatModelId.trim()
+      : current.label;
   const [search, setSearch] = useState("");
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("all");
@@ -301,11 +308,11 @@ function ModelDropdown() {
           )}
           title={
             currentProviderHasKey
-              ? `Model: ${current.label}`
-              : `${current.label} — no key configured`
+              ? `Model: ${currentLabel}`
+              : `${currentLabel} — no key configured`
           }
         >
-          {current.label}
+          {currentLabel}
           <HugeiconsIcon
             icon={ArrowDown01Icon}
             size={11}
