@@ -22,6 +22,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { segmentsFromCwd } from "./lib/pathUtils";
@@ -45,40 +46,24 @@ function basename(path: string): string {
 }
 
 export function CwdBreadcrumb({ cwd, filePath, home, onCd }: Props) {
-  // File mode: dir segments navigate; filename is the terminal leaf.
+  // File mode: collapse parent dirs; filename is the only visible path leaf.
   if (filePath) {
     const dir = dirname(filePath);
     const name = basename(filePath);
     const segments = segmentsFromCwd(dir, home);
-    const first = segments[0];
-    const middle = segments.slice(1);
     return (
-      <Breadcrumb>
-        <BreadcrumbList className="gap-1 text-xs sm:gap-1.5">
-          {first ? (
-            <BreadcrumbSegment
-              label={first.label}
-              isHome={first.isHome}
-              onClick={() => onCd(first.fullPath)}
-            />
+      <Breadcrumb className="min-w-0 overflow-hidden">
+        <BreadcrumbList className="min-w-0 flex-nowrap gap-1 overflow-hidden text-xs sm:gap-1.5">
+          {segments.length > 0 ? (
+            <CollapsedSegments segments={segments} onCd={onCd} />
           ) : null}
-          {middle.length > 0 ? (
-            <CollapsedSegments segments={middle} onCd={onCd} />
-          ) : null}
-          {middle.map((s) => (
-            <span
-              key={s.fullPath}
-              className="contents max-md:hidden"
+          <BreadcrumbItem className="min-w-0 shrink">
+            <BreadcrumbPage
+              className="block min-w-0 truncate text-foreground"
+              title={filePath}
             >
-              <BreadcrumbSegment
-                label={s.label}
-                isHome={s.isHome}
-                onClick={() => onCd(s.fullPath)}
-              />
-            </span>
-          ))}
-          <BreadcrumbItem>
-            <BreadcrumbPage className="text-foreground">{name}</BreadcrumbPage>
+              {name}
+            </BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -98,8 +83,8 @@ export function CwdBreadcrumb({ cwd, filePath, home, onCd }: Props) {
   const firstParent = parents[0];
   const middleParents = parents.slice(1);
   return (
-    <Breadcrumb>
-      <BreadcrumbList className="gap-1 text-xs sm:gap-1.5">
+    <Breadcrumb className="min-w-0 overflow-hidden">
+      <BreadcrumbList className="min-w-0 flex-nowrap gap-1 overflow-hidden text-xs sm:gap-1.5">
         {firstParent ? (
           <BreadcrumbSegment
             label={firstParent.label}
@@ -108,7 +93,11 @@ export function CwdBreadcrumb({ cwd, filePath, home, onCd }: Props) {
           />
         ) : null}
         {middleParents.length > 0 ? (
-          <CollapsedSegments segments={middleParents} onCd={onCd} />
+          <CollapsedSegments
+            segments={middleParents}
+            onCd={onCd}
+            className="md:hidden"
+          />
         ) : null}
         {middleParents.map((s) => (
           <span key={s.fullPath} className="contents max-md:hidden">
@@ -142,16 +131,16 @@ function BreadcrumbSegment({
 }) {
   return (
     <>
-      <BreadcrumbItem>
+      <BreadcrumbItem className="max-w-[5.5rem] shrink-0">
         <BreadcrumbLink asChild>
           <button
             type="button"
             onClick={onClick}
-            className="cursor-pointer"
+            className="max-w-full cursor-pointer"
           >
             <Badge
               variant="outline"
-              className="gap-1 text-muted-foreground hover:text-foreground"
+              className="max-w-full gap-1 truncate text-muted-foreground hover:text-foreground"
             >
               {isHome ? (
                 <HugeiconsIcon
@@ -260,12 +249,14 @@ function CurrentSegmentDropdown({
 function CollapsedSegments({
   segments,
   onCd,
+  className,
 }: {
   segments: { fullPath: string; label: string; isHome: boolean }[];
   onCd: (p: string) => void;
+  className?: string;
 }) {
   return (
-    <span className="contents md:hidden">
+    <span className={cn("contents", className)}>
       <BreadcrumbItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
