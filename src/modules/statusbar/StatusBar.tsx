@@ -41,10 +41,12 @@ export function StatusBar({
   const openPanel = useChatStore((s) => s.openPanel);
 
   return (
-    <footer className="flex h-8 shrink-0 items-center justify-between gap-3 border-t border-border/60 bg-card/60 px-3 text-[11px]">
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+    <footer className="grid h-8 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden border-t border-border/60 bg-card/60 px-3 text-[11px]">
+      <div className="flex min-w-0 items-center gap-2 overflow-hidden">
         <WorkspaceEnvSelector onSelect={onWorkspaceChange} />
-        <CwdBreadcrumb cwd={cwd} filePath={filePath} home={home} onCd={onCd} />
+        <div className="min-w-0 overflow-hidden">
+          <CwdBreadcrumb cwd={cwd} filePath={filePath} home={home} onCd={onCd} />
+        </div>
         {privateActive ? (
           <Tooltip>
             <TooltipTrigger asChild>
