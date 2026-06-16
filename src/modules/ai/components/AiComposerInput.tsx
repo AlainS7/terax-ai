@@ -209,7 +209,7 @@ export function AiComposerInput() {
     <>
       <Popover open={pickerOpen}>
         <PopoverAnchor asChild>
-          <div className="flex items-start gap-2">
+          <div className="flex min-w-0 items-start gap-2">
             <textarea
               ref={c.textareaRef}
               value={c.value}
@@ -264,7 +264,9 @@ export function AiComposerInput() {
                 "placeholder:text-muted-foreground/60",
               )}
             />
-            <AgentSwitcher />
+            <div className="shrink-0">
+              <AgentSwitcher />
+            </div>
           </div>
         </PopoverAnchor>
         {fileTrigger ? (
