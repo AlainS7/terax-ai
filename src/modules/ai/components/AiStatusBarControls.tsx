@@ -61,6 +61,8 @@ import { toggleFavoriteModel } from "../lib/modelPrefs";
 import { useChatStore } from "../store/chatStore";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { LiteLLMModelQuickSelect } from "./LiteLLMModelQuickSelect";
+import { useLiteLLMModelContext } from "../hooks/useLiteLLMModelContext";
+import { useLiteLLMModels } from "../hooks/useLiteLLMModels";
 
 const PROVIDER_ICON = {
   openai: ChatGptIcon,
@@ -218,6 +220,11 @@ function ModelDropdown() {
   const recentIds = usePreferencesStore((s) => s.recentModelIds);
   const customEndpoints = usePreferencesStore((s) => s.customEndpoints);
   const compatModelId = usePreferencesStore((s) => s.openaiCompatibleModelId);
+  const litellmCtx = useLiteLLMModelContext();
+  const { supported: litellmSupported, loading: litellmLoading } =
+    useLiteLLMModels(litellmCtx?.baseURL ?? "", litellmCtx?.apiKey);
+  const litellmPickerActive =
+    !!litellmCtx && (litellmSupported || litellmLoading);
   const current = isCompatModelId(selected)
     ? getCompatModelInfo(selected, customEndpoints)
     : getModel(selected as ModelId);
@@ -300,7 +307,8 @@ function ModelDropdown() {
           variant="ghost"
           size="sm"
           className={cn(
-            "h-5.5 gap-1 rounded-md px-1.5 my-1 text-xs hover:bg-accent hover:text-foreground",
+            "h-6 shrink-0 gap-1 rounded-md px-1.5 text-xs hover:bg-accent hover:text-foreground",
+            litellmPickerActive ? "px-1" : "max-w-[8.5rem]",
             currentProviderHasKey
               ? "text-muted-foreground"
               : "text-amber-600 dark:text-amber-400",
@@ -311,12 +319,21 @@ function ModelDropdown() {
               : `${currentLabel} — no key configured`
           }
         >
-          {currentLabel}
+          {litellmPickerActive ? (
+            <HugeiconsIcon
+              icon={PROVIDER_ICON[current.provider]}
+              size={13}
+              strokeWidth={1.75}
+              className="shrink-0"
+            />
+          ) : (
+            <span className="truncate">{currentLabel}</span>
+          )}
           <HugeiconsIcon
             icon={ArrowDown01Icon}
             size={11}
             strokeWidth={2}
-            className="opacity-70"
+            className="shrink-0 opacity-70"
           />
         </Button>
       </DropdownMenuTrigger>
