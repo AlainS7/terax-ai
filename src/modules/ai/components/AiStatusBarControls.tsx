@@ -106,7 +106,7 @@ export function AiStatusBarControls() {
   const closePanel = useChatStore((s) => s.closePanel);
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex shrink-0 items-center gap-0.5">
       <input
         ref={fileInputRef}
         type="file"
@@ -157,10 +157,12 @@ export function AiStatusBarControls() {
         </IconBtn>
       )}
 
-      <LiteLLMModelQuickSelect />
-      <ModelDropdown />
+      <div className="flex shrink-0 items-center gap-0.5">
+        <LiteLLMModelQuickSelect />
+        <ModelDropdown />
+      </div>
 
-      <span className="mx-1 h-8 w-px bg-border" aria-hidden />
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden />
       <Button
         onClick={closePanel}
         title="Close AI panel"
