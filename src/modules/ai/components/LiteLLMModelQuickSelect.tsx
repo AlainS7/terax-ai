@@ -13,11 +13,11 @@ export function LiteLLMModelQuickSelect() {
 
   return (
     <LiteLLMModelSelect
+      compact
       value={ctx.modelId}
       onChange={ctx.onChange}
       modelIds={modelIds}
-      triggerClassName="max-w-[11rem]"
-      placeholder={loading ? "Loading…" : ctx.modelId || "LiteLLM model"}
+      placeholder={loading ? "Loading…" : ctx.modelId || "Model"}
       disabled={loading}
     />
   );

@@ -15,6 +15,8 @@ type LiteLLMModelSelectProps = {
   triggerClassName?: string;
   placeholder?: string;
   disabled?: boolean;
+  /** Fits the status bar row (h-6, truncated). */
+  compact?: boolean;
 };
 
 export function LiteLLMModelSelect({
@@ -24,6 +26,7 @@ export function LiteLLMModelSelect({
   triggerClassName,
   placeholder = "Select LiteLLM model…",
   disabled,
+  compact = false,
 }: LiteLLMModelSelectProps) {
   const models = litellmModelsForPicker(modelIds, value);
   const selectValue = value.trim() || undefined;
@@ -37,11 +40,13 @@ export function LiteLLMModelSelect({
       <SelectTrigger
         size="sm"
         className={cn(
-          "h-8 w-full min-w-0 font-mono text-[11.5px]",
+          compact
+            ? "h-6 w-auto max-w-[9.5rem] shrink rounded-md border-border/60 bg-muted/30 px-2 font-mono text-[10px] shadow-none"
+            : "h-8 w-full min-w-0 font-mono text-[11.5px]",
           triggerClassName,
         )}
       >
-        <SelectValue placeholder={placeholder} />
+        <SelectValue placeholder={placeholder} className="truncate" />
       </SelectTrigger>
       <SelectContent className="max-h-72">
         {models.map((m) => (
