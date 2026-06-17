@@ -91,7 +91,7 @@ pub fn ensure_git_available(workspace: &WorkspaceEnv) -> Result<()> {
 }
 
 fn check_git_availability(workspace: &WorkspaceEnv) -> Availability {
-    let output = match run_git_uncached(workspace, None, ["--version"], 10) {
+    let output = match run_git_uncached(workspace, None, ["--version"], 10, None) {
         Ok(o) => o,
         Err(_) => return Availability::NotInstalled,
     };
@@ -231,7 +231,21 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    run_git_uncached(workspace, cwd, args, timeout_secs)
+    run_git_uncached(workspace, cwd, args, timeout_secs, None)
+}
+
+pub fn run_git_with_stdin<I, S>(
+    workspace: &WorkspaceEnv,
+    cwd: Option<&str>,
+    args: I,
+    stdin_bytes: &[u8],
+    timeout_secs: u64,
+) -> Result<GitOutput>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    run_git_uncached(workspace, cwd, args, timeout_secs, Some(stdin_bytes))
 }
 
 fn run_git_uncached<I, S>(
@@ -239,6 +253,7 @@ fn run_git_uncached<I, S>(
     cwd: Option<&str>,
     args: I,
     timeout_secs: u64,
+    stdin_bytes: Option<&[u8]>,
 ) -> Result<GitOutput>
 where
     I: IntoIterator<Item = S>,
@@ -257,12 +272,25 @@ where
         .env("GCM_INTERACTIVE", "Never")
         .env("GCM_PROVIDER", "")
         .env("LC_ALL", "C")
-        .stdin(Stdio::null())
+        .stdin(if stdin_bytes.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     crate::modules::proc::hide_console(&mut cmd);
 
-    let child = Arc::new(SharedChild::spawn(&mut cmd).map_err(|e| GitError::Spawn(e.to_string()))?);
+    let child = SharedChild::spawn(&mut cmd).map_err(|e| GitError::Spawn(e.to_string()))?;
+    if let Some(bytes) = stdin_bytes {
+        if let Some(mut stdin) = child.take_stdin() {
+            use std::io::Write;
+            stdin
+                .write_all(bytes)
+                .map_err(|e| GitError::Io(e))?;
+        }
+    }
+    let child = Arc::new(child);
     let mut stdout_pipe = child
         .take_stdout()
         .ok_or_else(|| GitError::Spawn("no stdout pipe".into()))?;
