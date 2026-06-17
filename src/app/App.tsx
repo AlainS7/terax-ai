@@ -1084,6 +1084,7 @@ export default function App() {
                         sourceControl={sourceControl}
                         onOpenDiff={openGitDiffTab}
                         onOpenGitGraph={openGitGraphFromContext}
+                        onOpenCompose={openGitComposeFromSourceControl}
                         onOpenFile={handleOpenFile}
                       />
                     )}

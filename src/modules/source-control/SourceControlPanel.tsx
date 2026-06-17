@@ -50,6 +50,7 @@ import {
   GitBranchIcon,
   Refresh01Icon,
   RemoveSquareIcon,
+  SparklesIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -69,11 +70,23 @@ import {
   type CheckState,
   type SourceControlFileEntry,
 } from "./useSourceControlPanel";
+import { composeScopePaths } from "./lib/composeCommits";
+import {
+  resolveComposeAiUnavailableReason,
+} from "./useComposeCommits";
+import { useChatStore } from "@/modules/ai/store/chatStore";
+import {
+  isCompatModelId,
+  providerNeedsKey,
+  resolveModel,
+} from "@/modules/ai/config";
+import { usePreferencesStore } from "@/modules/settings/preferences";
 
 type Props = {
   open: boolean;
   sourceControl: SourceControlSummary;
   onOpenGitGraph?: () => void;
+  onOpenCompose?: (input: { repoRoot: string; scopePaths: string[] }) => void;
   onOpenDiff: (input: {
     path: string;
     repoRoot: string;
@@ -147,10 +160,86 @@ export const SourceControlPanel = memo(function SourceControlPanel({
   open,
   sourceControl,
   onOpenGitGraph,
+  onOpenCompose,
   onOpenDiff,
   onOpenFile,
 }: Props) {
   const scm = useSourceControlPanel(open, sourceControl, onOpenDiff);
+  const selectedModelId = useChatStore((state) => state.selectedModelId);
+  const customEndpoints = usePreferencesStore((state) => state.customEndpoints);
+  const hasApiKeyForSelected = useChatStore((state) => {
+    if (isCompatModelId(state.selectedModelId)) return true;
+    const model = resolveModel(state.selectedModelId, customEndpoints);
+    return !providerNeedsKey(model.provider) || !!state.apiKeys[model.provider];
+  });
+  const lmstudioModelId = usePreferencesStore((state) => state.lmstudioModelId);
+  const mlxModelId = usePreferencesStore((state) => state.mlxModelId);
+  const ollamaModelId = usePreferencesStore((state) => state.ollamaModelId);
+  const openaiCompatibleBaseURL = usePreferencesStore(
+    (state) => state.openaiCompatibleBaseURL,
+  );
+  const openaiCompatibleModelId = usePreferencesStore(
+    (state) => state.openaiCompatibleModelId,
+  );
+  const openrouterModelId = usePreferencesStore(
+    (state) => state.openrouterModelId,
+  );
+  const composeScope = useMemo(
+    () =>
+      scm.status
+        ? composeScopePaths(scm.status, scm.selected?.path ?? null)
+        : [],
+    [scm.selected?.path, scm.status],
+  );
+  const composeHint = useMemo(() => {
+    const aiReason = resolveComposeAiUnavailableReason({
+      scopePaths: composeScope,
+      hasApiKeyForSelected,
+      selectedModelId,
+      customEndpoints,
+      lmstudioModelId,
+      mlxModelId,
+      ollamaModelId,
+      openaiCompatibleBaseURL,
+      openaiCompatibleModelId,
+      openrouterModelId,
+    });
+    if (aiReason) return aiReason;
+    if (scm.actionBusy || sourceControl.busyAction) {
+      return "Wait for the current Git action to finish.";
+    }
+    return "Split staged or selected changes into atomic commits with AI.";
+  }, [
+    composeScope,
+    customEndpoints,
+    hasApiKeyForSelected,
+    lmstudioModelId,
+    mlxModelId,
+    ollamaModelId,
+    openaiCompatibleBaseURL,
+    openaiCompatibleModelId,
+    openrouterModelId,
+    scm.actionBusy,
+    selectedModelId,
+    sourceControl.busyAction,
+  ]);
+  const canCompose =
+    !!scm.repo &&
+    composeScope.length > 0 &&
+    !resolveComposeAiUnavailableReason({
+      scopePaths: composeScope,
+      hasApiKeyForSelected,
+      selectedModelId,
+      customEndpoints,
+      lmstudioModelId,
+      mlxModelId,
+      ollamaModelId,
+      openaiCompatibleBaseURL,
+      openaiCompatibleModelId,
+      openrouterModelId,
+    }) &&
+    !scm.actionBusy &&
+    !sourceControl.busyAction;
   const refreshAnimationRef = useRef<number | null>(null);
   const [refreshAnimating, setRefreshAnimating] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -597,7 +686,43 @@ export const SourceControlPanel = memo(function SourceControlPanel({
                     </span>
                   )}
                 </div>
-                <div className="absolute right-1 top-1">
+                <div className="absolute right-1 top-1 flex items-center gap-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={composeHint}
+                        disabled={!canCompose || scm.allClean}
+                        onClick={() => {
+                          if (!scm.repo || composeScope.length === 0) return;
+                          onOpenCompose?.({
+                            repoRoot: scm.repo.repoRoot,
+                            scopePaths: composeScope,
+                          });
+                        }}
+                        className={cn(
+                          "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/65 transition-colors",
+                          "hover:bg-foreground/[0.06] hover:text-foreground",
+                          "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-muted-foreground/65",
+                        )}
+                      >
+                        <HugeiconsIcon
+                          icon={SparklesIcon}
+                          size={14}
+                          strokeWidth={1.75}
+                        />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="left"
+                      className={cn(
+                        SOURCE_CONTROL_TOOLTIP_CLASS,
+                        "text-[10.5px]",
+                      )}
+                    >
+                      {composeHint}
+                    </TooltipContent>
+                  </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -797,6 +922,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </TooltipProvider>
   );
 });
