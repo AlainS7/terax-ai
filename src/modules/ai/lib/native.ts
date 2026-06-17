@@ -268,6 +268,12 @@ export const native = {
       staged,
       workspace: currentWorkspaceEnv(),
     }),
+  gitDiffWorktree: (repoRoot: string, path?: string | null) =>
+    invoke<GitDiffResult>("git_diff_worktree", {
+      repoRoot,
+      path: path ?? null,
+      workspace: currentWorkspaceEnv(),
+    }),
   gitDiffContent: (
     repoRoot: string,
     path: string,
@@ -285,6 +291,12 @@ export const native = {
     invoke<void>("git_stage", {
       repoRoot,
       paths,
+      workspace: currentWorkspaceEnv(),
+    }),
+  gitApplyCached: (repoRoot: string, patch: string) =>
+    invoke<void>("git_apply_cached", {
+      repoRoot,
+      patch,
       workspace: currentWorkspaceEnv(),
     }),
   gitUnstage: (repoRoot: string, paths: string[]) =>
