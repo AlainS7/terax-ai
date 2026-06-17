@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 import { AiDiffStack, EditorStack, GitDiffStack } from "@/modules/editor";
+import { ComposeCommitsStack } from "@/modules/source-control/ComposeCommitsStack";
 import { GitHistoryStack } from "@/modules/git-history";
 import { MarkdownStack } from "@/modules/markdown";
 import { PreviewStack } from "@/modules/preview";
@@ -31,6 +32,8 @@ type Props = {
   onAiDiffReject: AiDiffStackProps["onReject"];
   onOpenCommitFile: GitHistoryStackProps["onOpenCommitFile"];
   onGitHistorySearchHandle: GitHistoryStackProps["onSearchHandle"];
+  onGitComposePendingAnalyze: (tabId: number) => void;
+  onRefreshSourceControl: () => Promise<void> | void;
   onSetMarkdownView: EditorStackProps["onSetMarkdownView"];
 };
 
@@ -57,6 +60,8 @@ export function WorkspaceSurface({
   onAiDiffReject,
   onOpenCommitFile,
   onGitHistorySearchHandle,
+  onGitComposePendingAnalyze,
+  onRefreshSourceControl,
   onSetMarkdownView,
 }: Props) {
   const kind = activeTab?.kind;
@@ -67,6 +72,7 @@ export function WorkspaceSurface({
   const isAiDiffTab = kind === "ai-diff";
   const isGitDiffTab = kind === "git-diff" || kind === "git-commit-file";
   const isGitHistoryTab = kind === "git-history";
+  const isGitComposeTab = kind === "git-compose";
 
   return (
     <div className="relative h-full min-h-0">
@@ -165,6 +171,20 @@ export function WorkspaceSurface({
           activeId={activeId}
           onOpenCommitFile={onOpenCommitFile}
           onSearchHandle={onGitHistorySearchHandle}
+        />
+      </div>
+      <div
+        className={cn(
+          "absolute inset-0",
+          !isGitComposeTab && "invisible pointer-events-none",
+        )}
+        aria-hidden={!isGitComposeTab}
+      >
+        <ComposeCommitsStack
+          tabs={tabs}
+          activeId={activeId}
+          onPendingAnalyzeHandled={onGitComposePendingAnalyze}
+          onRefreshSourceControl={onRefreshSourceControl}
         />
       </div>
     </div>

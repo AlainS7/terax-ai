@@ -123,6 +123,8 @@ export default function App() {
     openGitDiffTab,
     openCommitHistoryTab,
     openCommitFileDiffTab,
+    openGitComposeTab,
+    patchGitComposeTab,
     closeTab,
     updateTab,
     selectByIndex,
@@ -562,6 +564,24 @@ export default function App() {
     },
     [newPreviewTab],
   );
+
+  const openGitComposeFromSourceControl = useCallback(
+    (input: { repoRoot: string; scopePaths: string[] }) => {
+      openGitComposeTab({ ...input, pendingAnalyze: true });
+    },
+    [openGitComposeTab],
+  );
+
+  const handleGitComposePendingAnalyze = useCallback(
+    (tabId: number) => {
+      patchGitComposeTab(tabId, { pendingAnalyze: false });
+    },
+    [patchGitComposeTab],
+  );
+
+  const refreshSourceControl = useCallback(async () => {
+    await sourceControl.refresh({ remote: "never" });
+  }, [sourceControl]);
 
 
   const splitActivePaneInActiveTab = useCallback(
@@ -1097,6 +1117,8 @@ export default function App() {
                       onAiDiffReject={(id) => respondToApproval(id, false)}
                       onOpenCommitFile={openCommitFileDiffTab}
                       onGitHistorySearchHandle={setGitHistoryHandle}
+                      onGitComposePendingAnalyze={handleGitComposePendingAnalyze}
+                      onRefreshSourceControl={refreshSourceControl}
                       onSetMarkdownView={setMarkdownView}
                     />
                   </div>
