@@ -5,7 +5,7 @@ use crate::modules::git::errors::{GitError, Result};
 use crate::modules::git::parser::parse_porcelain_v2;
 use crate::modules::git::process::{
     ensure_git_available, ensure_success, git_show_text, git_stdout_line_opt, git_stdout_lines,
-    read_text_file, run_git,
+    read_text_file, run_git, run_git_with_stdin,
 };
 use crate::modules::git::types::{
     DiscardEntry, GitCommitFileChange, GitCommitResult, GitDiffContentResult, GitDiffResult,
@@ -168,6 +168,17 @@ pub fn diff(
     diff_inner(&repo_root, path, staged)
 }
 
+pub fn diff_worktree(
+    registry: &WorkspaceRegistry,
+    repo_root: &str,
+    path: Option<&str>,
+    workspace: &WorkspaceEnv,
+) -> Result<GitDiffResult> {
+    let repo_root = authorized_repo_root(registry, repo_root, workspace)?;
+    ensure_git_available(&repo_root.workspace)?;
+    diff_worktree_inner(&repo_root, path)
+}
+
 fn diff_inner(
     repo_root: &ResolvedGitDirectory,
     path: Option<&str>,
@@ -193,6 +204,62 @@ fn diff_inner(
     )?;
     ensure_success(&output, "git diff failed")?;
 
+    let diff_text = match String::from_utf8(output.stdout) {
+        Ok(text) => text,
+        Err(e) => String::from_utf8_lossy(&e.into_bytes()).into_owned(),
+    };
+    Ok(GitDiffResult {
+        diff_text,
+        truncated: output.truncated,
+    })
+}
+
+fn diff_worktree_inner(
+    repo_root: &ResolvedGitDirectory,
+    path: Option<&str>,
+) -> Result<GitDiffResult> {
+    let has_head = git_stdout_line_opt(
+        &repo_root.workspace,
+        &repo_root.git_path,
+        ["rev-parse", "--verify", "HEAD"],
+    )?
+    .is_some();
+    if !has_head {
+        let staged = diff_inner(repo_root, path, true)?;
+        let unstaged = diff_inner(repo_root, path, false)?;
+        let mut parts = Vec::new();
+        if !staged.diff_text.is_empty() {
+            parts.push(staged.diff_text);
+        }
+        if !unstaged.diff_text.is_empty() {
+            parts.push(unstaged.diff_text);
+        }
+        return Ok(GitDiffResult {
+            diff_text: parts.join("\n"),
+            truncated: staged.truncated || unstaged.truncated,
+        });
+    }
+
+    let mut args: Vec<OsString> = vec![
+        "diff".into(),
+        "HEAD".into(),
+        "--no-ext-diff".into(),
+    ];
+    let pathspec = match path.filter(|p| !p.is_empty()) {
+        Some(p) => Some(pathspec_from_input(&repo_root.local_path, p)?),
+        None => None,
+    };
+    if let Some(spec) = pathspec.as_ref() {
+        args.push("--".into());
+        args.push(spec.clone().into());
+    }
+    let output = run_git(
+        &repo_root.workspace,
+        Some(&repo_root.git_path),
+        args,
+        DEFAULT_TIMEOUT_SECS,
+    )?;
+    ensure_success(&output, "git diff HEAD failed")?;
     let diff_text = match String::from_utf8(output.stdout) {
         Ok(text) => text,
         Err(e) => String::from_utf8_lossy(&e.into_bytes()).into_owned(),
@@ -283,6 +350,31 @@ pub fn stage(
         DEFAULT_TIMEOUT_SECS,
     )?;
     ensure_success(&output, "git add failed")
+}
+
+pub fn apply_cached(
+    registry: &WorkspaceRegistry,
+    repo_root: &str,
+    patch: &str,
+    workspace: &WorkspaceEnv,
+) -> Result<()> {
+    let repo_root = authorized_repo_root(registry, repo_root, workspace)?;
+    ensure_git_available(&repo_root.workspace)?;
+    if patch.trim().is_empty() {
+        return Err(GitError::command("git apply --cached", "empty patch"));
+    }
+    let output = run_git_with_stdin(
+        &repo_root.workspace,
+        Some(&repo_root.git_path),
+        [
+            OsStr::new("apply"),
+            OsStr::new("--cached"),
+            OsStr::new("--whitespace=nowarn"),
+        ],
+        patch.as_bytes(),
+        DEFAULT_TIMEOUT_SECS,
+    )?;
+    ensure_success(&output, "git apply --cached failed")
 }
 
 pub fn unstage(
