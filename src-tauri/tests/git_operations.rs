@@ -512,3 +512,129 @@ fn unauthorized_path_is_rejected() {
         Ok(_) => panic!("expected error for unauthorized dir"),
     }
 }
+
+/// Extract the first unified-diff hunk (file headers + one `@@` block) for hunk-level staging tests.
+fn first_hunk_patch(diff_text: &str) -> Option<String> {
+    let lines: Vec<&str> = diff_text.lines().collect();
+    let file_start = lines.iter().position(|line| line.starts_with("diff --git "))?;
+    let hunk_start = lines
+        .iter()
+        .enumerate()
+        .skip(file_start)
+        .find(|(_, line)| line.starts_with("@@ "))
+        .map(|(i, _)| i)?;
+    let hunk_end = lines
+        .iter()
+        .enumerate()
+        .skip(hunk_start + 1)
+        .find(|(_, line)| line.starts_with("@@ ") || line.starts_with("diff --git "))
+        .map(|(i, _)| i)
+        .unwrap_or(lines.len());
+    Some(format!("{}\n", lines[file_start..hunk_end].join("\n")))
+}
+
+#[test]
+fn apply_cached_stages_worktree_hunk() {
+    if skip_if_no_git() {
+        return;
+    }
+    let fx = GitRepoFixture::new();
+    fx.write_file("a.txt", "alpha\n");
+    fx.run_git(&["add", "a.txt"]);
+    fx.run_git(&["commit", "-q", "-m", "init"]);
+    fx.write_file("a.txt", "alpha\nbeta\n");
+
+    let worktree = operations::diff_worktree(&fx.registry, &fx.repo_str(), None, &fx.workspace)
+        .expect("diff_worktree");
+    let patch = first_hunk_patch(&worktree.diff_text).expect("hunk patch");
+    operations::apply_cached(&fx.registry, &fx.repo_str(), &patch, &fx.workspace)
+        .expect("apply_cached");
+
+    let staged = operations::diff(&fx.registry, &fx.repo_str(), None, true, &fx.workspace)
+        .expect("staged diff");
+    assert!(staged.diff_text.contains("+beta"));
+
+    let snap = operations::status(&fx.registry, &fx.repo_str(), &fx.workspace).unwrap();
+    let entry = snap
+        .changed_files
+        .iter()
+        .find(|f| f.path == "a.txt")
+        .expect("a.txt present");
+    assert!(entry.staged);
+}
+
+#[test]
+fn apply_cached_stages_one_hunk_leaving_sibling_unstaged() {
+    if skip_if_no_git() {
+        return;
+    }
+    let fx = GitRepoFixture::new();
+    let base: String = (1..=30)
+        .map(|i| format!("line{i}\n"))
+        .collect();
+    fx.write_file("a.txt", &base);
+    fx.run_git(&["add", "a.txt"]);
+    fx.run_git(&["commit", "-q", "-m", "init"]);
+
+    let mut modified = String::new();
+    for i in 1..=30 {
+        modified.push_str(&format!("line{i}\n"));
+        if i == 2 {
+            modified.push_str("insert-a\n");
+        }
+        if i == 28 {
+            modified.push_str("insert-b\n");
+        }
+    }
+    fx.write_file("a.txt", &modified);
+
+    let worktree = operations::diff_worktree(&fx.registry, &fx.repo_str(), None, &fx.workspace)
+        .expect("diff_worktree");
+    assert!(
+        worktree.diff_text.matches("@@ ").count() >= 2,
+        "expected multiple hunks, got:\n{}",
+        worktree.diff_text
+    );
+
+    let first_patch =
+        first_hunk_patch(&worktree.diff_text).expect("first hunk patch");
+    operations::apply_cached(&fx.registry, &fx.repo_str(), &first_patch, &fx.workspace)
+        .expect("apply_cached first hunk");
+
+    let staged = operations::diff(&fx.registry, &fx.repo_str(), None, true, &fx.workspace)
+        .expect("staged diff");
+    assert!(
+        staged.diff_text.contains("+insert-a"),
+        "staged should include first hunk"
+    );
+    assert!(
+        !staged.diff_text.contains("+insert-b"),
+        "second hunk should remain unstaged"
+    );
+
+    let unstaged = operations::diff(&fx.registry, &fx.repo_str(), None, false, &fx.workspace)
+        .expect("unstaged diff");
+    assert!(
+        unstaged.diff_text.contains("+insert-b"),
+        "worktree should still have second hunk unstaged"
+    );
+}
+
+#[test]
+fn apply_cached_rejects_empty_patch() {
+    if skip_if_no_git() {
+        return;
+    }
+    let fx = GitRepoFixture::new();
+    fx.write_file("a.txt", "alpha\n");
+    fx.run_git(&["add", "a.txt"]);
+    fx.run_git(&["commit", "-q", "-m", "init"]);
+
+    match operations::apply_cached(&fx.registry, &fx.repo_str(), "   \n", &fx.workspace) {
+        Err(GitError::CommandFailed { context, .. }) => {
+            assert!(context.contains("git apply --cached"));
+        }
+        Err(other) => panic!("expected CommandFailed, got {other}"),
+        Ok(_) => panic!("expected error for empty patch"),
+    }
+}
