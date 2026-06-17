@@ -75,6 +75,20 @@ pub async fn git_diff(
 }
 
 #[tauri::command]
+pub async fn git_diff_worktree(
+    repo_root: String,
+    path: Option<String>,
+    workspace: Option<WorkspaceEnv>,
+    app: AppHandle,
+) -> Result<GitDiffResult, String> {
+    let workspace = WorkspaceEnv::from_option(workspace);
+    blocking(app, move |r| {
+        operations::diff_worktree(r, &repo_root, path.as_deref(), &workspace).map_err(Into::into)
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn git_diff_content(
     repo_root: String,
     path: String,
@@ -94,6 +108,20 @@ pub async fn git_diff_content(
             &workspace,
         )
         .map_err(Into::into)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn git_apply_cached(
+    repo_root: String,
+    patch: String,
+    workspace: Option<WorkspaceEnv>,
+    app: AppHandle,
+) -> Result<(), String> {
+    let workspace = WorkspaceEnv::from_option(workspace);
+    blocking(app, move |r| {
+        operations::apply_cached(r, &repo_root, &patch, &workspace).map_err(Into::into)
     })
     .await
 }
