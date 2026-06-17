@@ -110,6 +110,16 @@ export type GitCommitFileDiffTab = TabBase & {
   originalPath: string | null;
 };
 
+export type GitComposeTab = TabBase & {
+  id: number;
+  kind: "git-compose";
+  title: string;
+  repoRoot: string;
+  scopePaths: string[];
+  /** Run analyze when the pane mounts or scope is refreshed from SCM. */
+  pendingAnalyze?: boolean;
+};
+
 export type Tab =
   | TerminalTab
   | EditorTab
@@ -118,7 +128,8 @@ export type Tab =
   | AiDiffTab
   | GitDiffTab
   | GitHistoryTab
-  | GitCommitFileDiffTab;
+  | GitCommitFileDiffTab
+  | GitComposeTab;
 
 export type TabPatch = Partial<{
   title: string;
@@ -789,6 +800,67 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     [],
   );
 
+  const openGitComposeTab = useCallback(
+    (input: {
+      repoRoot: string;
+      scopePaths: string[];
+      pendingAnalyze?: boolean;
+    }) => {
+      const curr = tabsRef.current;
+      const title = "Compose Commits";
+      const existing = curr.find(
+        (t) => t.kind === "git-compose" && t.repoRoot === input.repoRoot,
+      );
+      if (existing) {
+        const nextTabs = curr.map((t) =>
+          t.id === existing.id
+            ? {
+                ...t,
+                scopePaths: input.scopePaths,
+                pendingAnalyze: input.pendingAnalyze ?? true,
+              }
+            : t,
+        );
+        tabsRef.current = nextTabs;
+        setTabs(nextTabs);
+        setActiveId(existing.id);
+        return existing.id;
+      }
+      const id = nextIdRef.current++;
+      const nextTabs = [
+        ...curr,
+        {
+          id,
+          kind: "git-compose",
+          spaceId: activeSpaceIdRef.current,
+          title,
+          repoRoot: input.repoRoot,
+          scopePaths: input.scopePaths,
+          pendingAnalyze: input.pendingAnalyze ?? true,
+        } satisfies GitComposeTab,
+      ];
+      tabsRef.current = nextTabs;
+      setTabs(nextTabs);
+      setActiveId(id);
+      return id;
+    },
+    [],
+  );
+
+  const patchGitComposeTab = useCallback(
+    (
+      id: number,
+      patch: Partial<Pick<GitComposeTab, "scopePaths" | "pendingAnalyze">>,
+    ) => {
+      setTabs((curr) =>
+        curr.map((t) =>
+          t.id === id && t.kind === "git-compose" ? { ...t, ...patch } : t,
+        ),
+      );
+    },
+    [],
+  );
+
   const closeTab = useCallback((id: number) => {
     let toDispose: number[] = [];
     setTabs((curr) => {
@@ -1048,6 +1120,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     openGitDiffTab,
     openCommitHistoryTab,
     openCommitFileDiffTab,
+    openGitComposeTab,
+    patchGitComposeTab,
     setAiDiffStatus,
     closeAiDiffTab,
     closeTab,

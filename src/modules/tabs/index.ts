@@ -14,6 +14,7 @@ export {
   type GitDiffTab,
   type GitHistoryTab,
   type GitCommitFileDiffTab,
+  type GitComposeTab,
   type AiDiffStatus,
   type TabPatch,
 } from "./lib/useTabs";

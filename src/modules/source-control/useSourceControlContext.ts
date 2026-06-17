@@ -56,6 +56,7 @@ export function useSourceControlContext({
     if (activeTab?.kind === "git-diff") return activeTab.repoRoot;
     if (activeTab?.kind === "git-commit-file") return activeTab.repoRoot;
     if (activeTab?.kind === "git-history") return activeTab.repoRoot;
+    if (activeTab?.kind === "git-compose") return activeTab.repoRoot;
     return explorerRoot ?? workspaceFallbackPath;
   })();
   const hasOpenGitTab = useMemo(
@@ -64,6 +65,7 @@ export function useSourceControlContext({
         (t) =>
           t.kind === "git-diff" ||
           t.kind === "git-history" ||
+          t.kind === "git-compose" ||
           t.kind === "git-commit-file",
       ),
     [tabs],
